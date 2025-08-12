@@ -317,7 +317,7 @@ export default function Home() {
             <div className="event-item">
               <div className="badge small">{meteo}</div>
               <div className="event-body">
-                <p>La météo influence la quantité de farine produite par cycle. (Soleil > Pluie > Sécheresse)</p>
+                <p>La météo influence la quantité de farine produite par cycle. (Soleil &gt; Pluie &gt; Sécheresse)</p>
               </div>
               <div className="event-action">
                 <button onClick={() => { setMeteo("Soleil"); setNotif("Météo forcée : Soleil"); }}>Forcer Soleil</button>
