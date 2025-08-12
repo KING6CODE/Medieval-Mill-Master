@@ -1,21 +1,19 @@
 {
-  "name": "medieval-mill-master",
-  "version": "1.0.0",
+  "name": "run-and-collapse",
   "private": true,
+  "version": "1.0.0",
+  "type": "module",
   "scripts": {
-    "dev": "next dev -p 3000",
-    "build": "next build",
-    "start": "next start -p 3000",
-    "lint": "next lint"
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview --port 5173"
   },
   "dependencies": {
-    "next": "13.4.10",
-    "react": "18.2.0",
-    "react-dom": "18.2.0"
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1"
   },
-  "engines": {
-    "node": ">=16"
-  },
-  "description": "Prototype du jeu Medieval Mill Master — production évolutive (blé → farine → pain) avec météo, recherche et sauvegarde locale.",
-  "author": ""
+  "devDependencies": {
+    "@vitejs/plugin-react": "^4.3.1",
+    "vite": "^5.4.2"
+  }
 }
