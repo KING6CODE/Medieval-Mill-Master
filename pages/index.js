@@ -5,278 +5,328 @@ import Link from "next/link";
 const SAVE_KEY = "mm_save_v2";
 const TECH_KEY = "mm_tech_v2";
 
-/* -----------------------
-   Helpers & Tech list excerpt (used to map epochs)
-   ----------------------- */
-const TECH_EPOCH_ORDER = [
-  "Préhistoire",
-  "Antiquité",
-  "Moyen Âge",
-  "Renaissance",
-  "Révolution",
-  "Moderne",
-  "Spatiale"
-];
-
+/* ----------------------
+  UTILITAIRES
+-----------------------*/
+function clamp(v, a, b) { return Math.max(a, Math.min(b, v)); }
 function fmt(n) {
   if (n >= 1e6) return `${Math.round(n/1e5)/10}M`;
   if (n >= 1e3) return `${Math.round(n/100)/10}k`;
   return Math.floor(n);
 }
 
-/* small helper to derive dominant epoch from unlocked tech keys: 
-   we keep a small mapping here to determine the current epoch.
-   In the technologie page the IDs follow the same logic as earlier.
-*/
-const TECH_TO_EPOCH = {
-  hand_tools: "Préhistoire",
-  fire: "Préhistoire",
-  wheel_stone: "Antiquité",
-  water_mill: "Antiquité",
-  wheel_iron: "Moyen Âge",
-  guilds: "Moyen Âge",
-  wind_mill: "Renaissance",
-  steam_engine: "Révolution",
-  factory_lines: "Révolution",
-  electric_motors: "Moderne",
-  computing: "Moderne",
-  ai_automation: "Moderne",
-  space_mining: "Spatiale",
-  fusion_drive: "Spatiale",
-  colonies: "Spatiale",
-  market_network: "Moderne",
-  trade_routes: "Moderne"
-};
+/* ----------------------
+  SPRITES OUVRIERS (3 variantes)
+  Each returns an inline SVG representing a worker variant.
+  We'll animate a walking loop by shifting limbs via CSS keyframes.
+-----------------------*/
 
-/* -----------------------
-   Worker Avatar component (simple SVG person)
-   ----------------------- */
-function Worker({ index, active, offsetX }) {
-  // offsetX in px to move worker horizontally (animated via CSS)
+function WorkerSpriteA({ className = "" }) {
   return (
-    <div className={`worker ${active ? "active" : ""}`} style={{ left: `${offsetX}px` }} aria-hidden>
-      <svg width="36" height="48" viewBox="0 0 36 48" fill="none" xmlns="http://www.w3.org/2000/svg">
-        <circle cx="18" cy="10" r="8" fill="#ffd8b6"/>
-        <rect x="6" y="20" width="24" height="20" rx="4" fill="#5a7be6"/>
-        <rect x="10" y="34" width="6" height="8" rx="2" fill="#1f2a57"/>
-        <rect x="20" y="34" width="6" height="8" rx="2" fill="#1f2a57"/>
-      </svg>
+    <svg className={className} width="48" height="64" viewBox="0 0 48 64" xmlns="http://www.w3.org/2000/svg" aria-hidden>
+      <defs>
+        <linearGradient id="skinA" x1="0" x2="1"><stop offset="0" stopColor="#ffd8b6"/><stop offset="1" stopColor="#ffc29a"/></linearGradient>
+        <linearGradient id="clothA" x1="0" x2="1"><stop offset="0" stopColor="#3a6be6"/><stop offset="1" stopColor="#2353b2"/></linearGradient>
+      </defs>
+      {/* head */}
+      <circle cx="24" cy="10" r="8" fill="url(#skinA)"/>
+      {/* body */}
+      <rect x="10" y="18" rx="4" ry="4" width="28" height="22" fill="url(#clothA)"/>
+      {/* arms */}
+      <g className="arm-left">
+        <rect x="6" y="22" width="8" height="6" rx="3" fill="#3a6be6"/>
+      </g>
+      <g className="arm-right">
+        <rect x="34" y="22" width="8" height="6" rx="3" fill="#3a6be6"/>
+      </g>
+      {/* legs */}
+      <g className="leg-left">
+        <rect x="12" y="40" width="8" height="14" rx="3" fill="#283a65"/>
+      </g>
+      <g className="leg-right">
+        <rect x="28" y="40" width="8" height="14" rx="3" fill="#283a65"/>
+      </g>
+
       <style jsx>{`
-        .worker {
-          position:absolute;
-          bottom:10px;
-          transform:translateY(0);
-          transition: left 1s linear;
-          pointer-events:none;
-          opacity:0.95;
+        svg { display:block; }
+        /* walking animation */
+        .arm-left { transform-origin: 10px 24px; animation: swingA 700ms linear infinite; }
+        .arm-right { transform-origin: 40px 24px; animation: swingA 700ms linear infinite reverse; }
+        .leg-left { transform-origin: 16px 40px; animation: stepA 700ms linear infinite reverse; }
+        .leg-right { transform-origin: 32px 40px; animation: stepA 700ms linear infinite; }
+
+        @keyframes swingA {
+          0% { transform: rotate(-12deg); }
+          50% { transform: rotate(12deg); }
+          100% { transform: rotate(-12deg); }
         }
-        .worker.active { transform: translateY(-6px); filter: drop-shadow(0 6px 18px rgba(0,0,0,0.45)); }
+        @keyframes stepA {
+          0% { transform: translateY(0) rotate(6deg); }
+          50% { transform: translateY(-4px) rotate(-6deg); }
+          100% { transform: translateY(0) rotate(6deg); }
+        }
       `}</style>
-    </div>
+    </svg>
   );
 }
 
-/* -----------------------
-   Weather visual mini-component
-   ----------------------- */
-function WeatherVisual({ weather, era }) {
-  // era alters colors/filters
+function WorkerSpriteB({ className = "" }) {
   return (
-    <div className={`weather-visual ${weather.toLowerCase()} ${era?.toLowerCase?.() || ""}`} aria-hidden>
-      <div className="sun" />
-      <div className="cloud c1" />
-      <div className="cloud c2" />
-      <div className="rain">
-        {Array.from({ length: 18 }).map((_, i) => (
-          <div className="drop" key={i} style={{ left: `${i * 5 + (i % 3)}%`, animationDelay: `${i * 70}ms` }} />
-        ))}
-      </div>
+    <svg className={className} width="48" height="64" viewBox="0 0 48 64" xmlns="http://www.w3.org/2000/svg" aria-hidden>
+      <defs>
+        <linearGradient id="skinB" x1="0" x2="1"><stop offset="0" stopColor="#ffe2c9"/><stop offset="1" stopColor="#ffcfb2"/></linearGradient>
+        <linearGradient id="clothB" x1="0" x2="1"><stop offset="0" stopColor="#f08b3f"/><stop offset="1" stopColor="#cf5f1a"/></linearGradient>
+      </defs>
+      <circle cx="24" cy="10" r="8" fill="url(#skinB)"/>
+      <rect x="10" y="18" rx="4" ry="4" width="28" height="22" fill="url(#clothB)"/>
+      <g className="arm-left-b"><rect x="6" y="22" width="8" height="6" rx="3" fill="#f08b3f"/></g>
+      <g className="arm-right-b"><rect x="34" y="22" width="8" height="6" rx="3" fill="#f08b3f"/></g>
+      <g className="leg-left-b"><rect x="12" y="40" width="8" height="14" rx="3" fill="#7b3f20"/></g>
+      <g className="leg-right-b"><rect x="28" y="40" width="8" height="14" rx="3" fill="#7b3f20"/></g>
 
       <style jsx>{`
-        .weather-visual { position:absolute; inset:0; pointer-events:none; z-index:0; transition:opacity .6s; }
-        .sun { position:absolute; right:8%; top:8%; width:84px; height:84px; border-radius:50%; background: radial-gradient(circle at 30% 30%, #fff8c4, #ffc857); box-shadow:0 18px 60px rgba(255,170,60,0.12); opacity:0.95; }
-        .cloud { position:absolute; background: linear-gradient(180deg, rgba(255,255,255,0.06), rgba(255,255,255,0.02)); border-radius:40px; box-shadow: inset 0 -12px 28px rgba(0,0,0,0.30); }
-        .c1 { width:220px; height:56px; left:6%; top:8%; }
-        .c2 { width:260px; height:72px; left:36%; top:22%; opacity:0.9; transform:scale(0.95); }
-        .rain { position:absolute; inset:0; opacity:0; }
-        .drop { position:absolute; top:16%; width:2px; height:26px; background: linear-gradient(#fff,#bfe0ff); border-radius:2px; transform: translateY(-8vh); animation: fall 900ms linear infinite; }
-        @keyframes fall { 0% { transform:translateY(-8vh); opacity:0 } 10% { opacity:1 } 100% { transform:translateY(90vh); opacity:0 } }
-        .weather-visual.soleil .sun { opacity:1; }
-        .weather-visual.soleil .rain { opacity:0; }
-        .weather-visual.pluie .sun { opacity:0.25; transform: translateY(-8px) scale(0.95); }
-        .weather-visual.pluie .rain { opacity:1; }
-        .weather-visual.sécheresse .sun { opacity:0.95; transform: translateY(-4px); filter: saturate(0.9) brightness(1.02); }
-        /* Era tinting */
-        .weather-visual.préhistoire { filter: hue-rotate(-10deg) saturate(1.02) contrast(0.95); }
-        .weather-visual.moyen\ âge { filter: hue-rotate(0deg) saturate(1) contrast(1); }
-        .weather-visual.révolution { filter: hue-rotate(10deg) saturate(1.05); }
-        .weather-visual.modern e { filter: none; }
-        .weather-visual.spatiale { filter: saturate(1.1) contrast(1.05); }
+        svg { display:block; }
+        .arm-left-b { transform-origin: 10px 24px; animation: swingB 820ms linear infinite reverse; }
+        .arm-right-b { transform-origin: 40px 24px; animation: swingB 820ms linear infinite; }
+        .leg-left-b { transform-origin: 16px 40px; animation: stepB 820ms linear infinite; }
+        .leg-right-b { transform-origin: 32px 40px; animation: stepB 820ms linear infinite reverse; }
+
+        @keyframes swingB {
+          0% { transform: rotate(-18deg); }
+          50% { transform: rotate(12deg); }
+          100% { transform: rotate(-18deg); }
+        }
+        @keyframes stepB {
+          0% { transform: translateY(0) rotate(8deg); }
+          50% { transform: translateY(-6px) rotate(-8deg); }
+          100% { transform: translateY(0) rotate(8deg); }
+        }
+      `}</style>
+    </svg>
+  );
+}
+
+function WorkerSpriteC({ className = "" }) {
+  return (
+    <svg className={className} width="48" height="64" viewBox="0 0 48 64" xmlns="http://www.w3.org/2000/svg" aria-hidden>
+      <defs>
+        <linearGradient id="skinC" x1="0" x2="1"><stop offset="0" stopColor="#ffdcbf"/><stop offset="1" stopColor="#ffc8a2"/></linearGradient>
+        <linearGradient id="clothC" x1="0" x2="1"><stop offset="0" stopColor="#2db48f"/><stop offset="1" stopColor="#1b7b64"/></linearGradient>
+      </defs>
+      <circle cx="24" cy="10" r="8" fill="url(#skinC)"/>
+      <rect x="10" y="18" rx="4" ry="4" width="28" height="22" fill="url(#clothC)"/>
+      <g className="arm-left-c"><rect x="6" y="22" width="8" height="6" rx="3" fill="#2db48f"/></g>
+      <g className="arm-right-c"><rect x="34" y="22" width="8" height="6" rx="3" fill="#2db48f"/></g>
+      <g className="leg-left-c"><rect x="12" y="40" width="8" height="14" rx="3" fill="#134c3a"/></g>
+      <g className="leg-right-c"><rect x="28" y="40" width="8" height="14" rx="3" fill="#134c3a"/></g>
+
+      <style jsx>{`
+        svg { display:block; }
+        .arm-left-c { transform-origin: 10px 24px; animation: swingC 760ms linear infinite; }
+        .arm-right-c { transform-origin: 40px 24px; animation: swingC 760ms linear infinite reverse; }
+        .leg-left-c { transform-origin: 16px 40px; animation: stepC 760ms linear infinite; }
+        .leg-right-c { transform-origin: 32px 40px; animation: stepC 760ms linear infinite reverse; }
+
+        @keyframes swingC {
+          0% { transform: rotate(-10deg); }
+          50% { transform: rotate(14deg); }
+          100% { transform: rotate(-10deg); }
+        }
+        @keyframes stepC {
+          0% { transform: translateY(0) rotate(4deg); }
+          50% { transform: translateY(-5px) rotate(-4deg); }
+          100% { transform: translateY(0) rotate(4deg); }
+        }
+      `}</style>
+    </svg>
+  );
+}
+
+/* ----------------------
+  Moulin SVG DETAILED
+  - wheel, large gear, small gear, connecting axle, piston (for industrial vibe)
+  - multiple rotating elements with different speeds for realism
+-----------------------*/
+function DetailedMill({ spinDuration = 4000, era = "Moyen Âge" }) {
+  // era can be used to change textures/colors
+  const isPrehistoric = era === "Préhistoire";
+  const woodColor = isPrehistoric ? "#7a5230" : "#3a6be6";
+  const metal = "#dbeeff";
+
+  return (
+    <div className="detailed-mill" aria-hidden>
+      <svg viewBox="0 0 520 320" className="mill-svg" preserveAspectRatio="xMidYMid meet">
+        <defs>
+          <linearGradient id="woodGrad" x1="0" x2="1"><stop offset="0" stopColor="#9a6b3f"/><stop offset="1" stopColor="#6f3f1f"/></linearGradient>
+          <linearGradient id="metalGrad" x1="0" x2="1"><stop offset="0" stopColor="#e8f4ff"/><stop offset="1" stopColor="#bcd9ff"/></linearGradient>
+          <filter id="softShadow" x="-20%" y="-20%" width="140%" height="140%">
+            <feDropShadow dx="0" dy="12" stdDeviation="24" floodColor="#03102a" floodOpacity="0.28"/>
+          </filter>
+        </defs>
+
+        {/* building */}
+        <g transform="translate(30,20)">
+          <rect x="180" y="40" width="220" height="120" rx="12" fill="url(#woodGrad)" filter="url(#softShadow)"/>
+          <polygon points="180,40 290,0 400,40" fill="#5d3f22"/>
+          {/* window */}
+          <rect x="240" y="66" width="40" height="28" rx="4" fill="#e9f7ff" opacity="0.12"/>
+        </g>
+
+        {/* big wheel group */}
+        <g transform="translate(120,170)" className="wheel-big">
+          <circle cx="0" cy="0" r="72" fill="none" stroke={metal} strokeWidth="10" />
+          {/* paddles */}
+          {Array.from({ length: 12 }).map((_, i) => {
+            const angle = i * 30;
+            return <rect key={i} x="-6" y="-72" width="12" height="36" rx="3" fill="#5b7fdc" transform={`rotate(${angle})`} />;
+          })}
+          <circle cx="0" cy="0" r="18" fill={metal} />
+        </g>
+
+        {/* gear train */}
+        <g transform="translate(260,170)">
+          <g className="gear-large" transform="translate(-60,0)">
+            <circle cx="0" cy="0" r="36" fill="url(#metalGrad)" stroke="#c8e0ff" strokeWidth="6"/>
+            {/* teeth */}
+            {Array.from({length:16}).map((_,i)=>{
+              const a = i * (360/16);
+              return <rect key={i} x="-6" y="-46" width="12" height="10" fill="#bfdcff" transform={`rotate(${a}) translate(0, -6)`} />;
+            })}
+          </g>
+
+          <g className="gear-small" transform="translate(40,0)">
+            <circle cx="0" cy="0" r="18" fill="url(#metalGrad)" stroke="#c8e0ff" strokeWidth="4"/>
+            {Array.from({length:12}).map((_,i)=>{
+              const a = i * (360/12);
+              return <rect key={i} x="-4" y="-28" width="8" height="6" fill="#cfe6ff" transform={`rotate(${a}) translate(0, -4)`} />;
+            })}
+          </g>
+
+          {/* piston */}
+          <g className="piston" transform="translate(120,-6)">
+            <rect x="-6" y="-36" width="40" height="14" rx="6" fill="#7a7a7a" />
+            <rect x="-2" y="-80" width="20" height="50" rx="6" fill="#dfeeff" />
+          </g>
+        </g>
+
+        <style jsx>{`
+          .mill-svg { width:100%; height:100%; max-height:320px; display:block; }
+          /* wheel big rotates slowly */
+          .wheel-big { transform-origin: 120px 170px; animation: spinWheel var(--spin) linear infinite; }
+          .gear-large { transform-origin: 200px 170px; animation: spinLarge calc(var(--spin) * 0.6) linear infinite reverse; }
+          .gear-small { transform-origin: 300px 170px; animation: spinSmall calc(var(--spin) * 0.32) linear infinite; }
+          .piston { transform-origin: 120px 80px; animation: pistonMove calc(var(--spin) * 0.28) linear infinite; }
+
+          @keyframes spinWheel { from{ transform: rotate(0deg);} to{ transform: rotate(360deg);} }
+          @keyframes spinLarge { from{ transform: rotate(0deg);} to{ transform: rotate(360deg);} }
+          @keyframes spinSmall { from{ transform: rotate(0deg);} to{ transform: rotate(360deg);} }
+          @keyframes pistonMove {
+            0% { transform: translateY(0); }
+            50% { transform: translateY(12px); }
+            100% { transform: translateY(0); }
+          }
+        `}</style>
+      </svg>
+
+      {/* control CSS var for speed */}
+      <style jsx>{`
+        :root { --spin: ${spinDuration}ms; }
+        .detailed-mill { width:100%; height:100%; }
       `}</style>
     </div>
   );
 }
 
-/* -----------------------
-   Main Page Component
-   ----------------------- */
+/* ----------------------
+ MAIN PAGE (mise à jour visuelle + logique)
+ We keep most of the gameplay logic (production, workers, autosave, tech sync).
+-----------------------*/
+
 export default function Home() {
-  // core resources
-  const [wheat, setWheat] = useState(200);
+  // resources
+  const [wheat, setWheat] = useState(220);
   const [flour, setFlour] = useState(0);
   const [bread, setBread] = useState(0);
-  const [money, setMoney] = useState(250);
+  const [money, setMoney] = useState(260);
 
-  // production / workers
-  const [cycleMs, setCycleMs] = useState(6000);
+  // production/workers
   const [workers, setWorkers] = useState(1);
   const [morale, setMorale] = useState(92);
+  const [cycleMs, setCycleMs] = useState(6000);
   const [weather, setWeather] = useState("Soleil");
 
-  // tech
+  // tech unlocked
   const [unlocked, setUnlocked] = useState({});
 
-  // UI
-  const [notif, setNotif] = useState("Bienvenue !");
+  // ui
+  const [notif, setNotif] = useState("Bienvenue au moulin amélioré !");
   const [history, setHistory] = useState([]);
 
-  // autosave & refs
-  const autosaveRef = useRef(null);
-  const cycleRef = useRef(null);
+  // refs
   const mountedRef = useRef(false);
+  const cycleRef = useRef(null);
 
-  // derive current era from unlocked techs
-  function getEraFromUnlocked(u) {
-    // find highest order epoch among unlocked; default Préhistoire -> Moyen Âge -> ... Spatiale
-    const epochsUnlocked = new Set();
-    Object.keys(u || {}).forEach(k => {
-      const e = TECH_TO_EPOCH[k];
-      if (e) epochsUnlocked.add(e);
-    });
-    // choose the latest epoch present by TECH_EPOCH_ORDER index
-    for (let i = TECH_EPOCH_ORDER.length - 1; i >= 0; i--) {
-      if (epochsUnlocked.has(TECH_EPOCH_ORDER[i])) return TECH_EPOCH_ORDER[i];
-    }
-    return "Préhistoire";
-  }
-  const currentEra = getEraFromUnlocked(unlocked);
-
-  // multipliers based on unlocked techs (read minimal set of ids)
-  function computeMultipliers(u) {
-    let speed = 1; // lower is faster
-    let yieldMult = 1;
-    if (u["hand_tools"]) yieldMult *= 1.08;
-    if (u["wheel_stone"]) yieldMult *= 1.05;
-    if (u["water_mill"]) { speed *= 0.75; yieldMult *= 1.15; }
-    if (u["wind_mill"]) { speed *= 0.6; yieldMult *= 1.25; }
-    if (u["steam_engine"]) { speed *= 0.45; yieldMult *= 1.45; }
-    if (u["electric_motors"]) { speed *= 0.32; yieldMult *= 1.6; }
-    if (u["ai_automation"]) { speed *= 0.18; yieldMult *= 2.0; }
-    return { speed, yieldMult };
-  }
-
-  // load save & techs on mount
+  // load save & techs
   useEffect(() => {
     try {
       const s = JSON.parse(localStorage.getItem(SAVE_KEY) || "null");
       if (s) {
-        setWheat(s.wheat ?? 200);
+        setWheat(s.wheat ?? 220);
         setFlour(s.flour ?? 0);
         setBread(s.bread ?? 0);
-        setMoney(s.money ?? 250);
-        setCycleMs(s.cycleMs ?? 6000);
+        setMoney(s.money ?? 260);
         setWorkers(s.workers ?? 1);
         setMorale(s.morale ?? 92);
+        setCycleMs(s.cycleMs ?? 6000);
         pushHist("Sauvegarde chargée.");
-      } else {
-        pushHist("Nouvelle partie créée.");
-      }
-    } catch (e) {
-      console.error(e);
-      pushHist("Erreur chargement sauvegarde.");
-    }
+      } else pushHist("Nouvelle partie.");
+    } catch (e) { pushHist("Erreur chargement."); }
     try {
       const t = JSON.parse(localStorage.getItem(TECH_KEY) || "{}");
       setUnlocked(t || {});
-    } catch (e) {
-      setUnlocked({});
-    }
+    } catch (e) { setUnlocked({}); }
     mountedRef.current = true;
 
-    // listen for storage events (other tabs or explicit events)
-    function onStorage(e) {
-      if (e.key === TECH_KEY) {
-        const newT = JSON.parse(localStorage.getItem(TECH_KEY) || "{}");
-        setUnlocked(newT || {});
-        pushHist("Technologies mises à jour.");
-      }
+    // listen for tech-updated event
+    function onTech() {
+      try { const t = JSON.parse(localStorage.getItem(TECH_KEY) || "{}"); setUnlocked(t || {}); pushHist("Technologie appliquée."); } catch(e){}
+    }
+    window.addEventListener("tech-updated", onTech);
+    window.addEventListener("storage", (e) => {
+      if (e.key === TECH_KEY) onTech();
       if (e.key === SAVE_KEY) {
         const s = JSON.parse(localStorage.getItem(SAVE_KEY) || "{}");
-        if (s) {
-          setMoney(s.money ?? money);
-          setWheat(s.wheat ?? wheat);
-          pushHist("Sauvegarde externe chargée.");
-        }
+        if (s) { setMoney(s.money ?? money); setWheat(s.wheat ?? wheat); pushHist("Sauvegarde externe chargée."); }
       }
-    }
-    window.addEventListener("storage", onStorage);
+    });
 
-    // listen for custom event triggered by /technologie after unlocking (single-tab)
-    function onTechUpdated() {
-      const newT = JSON.parse(localStorage.getItem(TECH_KEY) || "{}");
-      setUnlocked(newT || {});
-      pushHist("Technologie débloquée (appliquée).");
-    }
-    window.addEventListener("tech-updated", onTechUpdated);
-
-    // save on unload
-    function onBeforeUnload() { autoSave(); }
-    window.addEventListener("beforeunload", onBeforeUnload);
-
-    return () => {
-      window.removeEventListener("storage", onStorage);
-      window.removeEventListener("tech-updated", onTechUpdated);
-      window.removeEventListener("beforeunload", onBeforeUnload);
-    };
+    return () => { window.removeEventListener("tech-updated", onTech); };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // apply tech multipliers to cycleMs whenever unlocked changes
+  // apply tech effects to cycle / speed
   useEffect(() => {
-    const base = 6000;
-    const mult = computeMultipliers(unlocked);
-    setCycleMs(Math.max(700, Math.round(base * mult.speed)));
-    // persist unlocked in localStorage (keeps tech page and game in sync)
-    localStorage.setItem(TECH_KEY, JSON.stringify(unlocked));
-    // no pushHist here to avoid spam on mount
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    // simple multipliers as previously
+    let base = 6000;
+    if (unlocked["hand_tools"]) base *= 0.98;
+    if (unlocked["water_mill"]) base *= 0.75;
+    if (unlocked["wind_mill"]) base *= 0.6;
+    if (unlocked["steam_engine"]) base *= 0.45;
+    if (unlocked["electric_motors"]) base *= 0.32;
+    if (unlocked["ai_automation"]) base *= 0.18;
+    setCycleMs(Math.max(700, Math.round(base)));
   }, [unlocked]);
 
-  // production main loop with workers influence
+  // production loop
   useEffect(() => {
     if (!mountedRef.current) return;
     if (cycleRef.current) clearInterval(cycleRef.current);
-    cycleRef.current = setInterval(() => {
-      produceCycle();
-    }, cycleMs);
-    return () => {
-      if (cycleRef.current) clearInterval(cycleRef.current);
-    };
+    cycleRef.current = setInterval(() => { productionCycle(); }, cycleMs);
+    return () => { if (cycleRef.current) clearInterval(cycleRef.current); };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [cycleMs, workers, weather, unlocked, morale]);
 
-  // autosave interval
-  useEffect(() => {
-    if (autosaveRef.current) clearInterval(autosaveRef.current);
-    autosaveRef.current = setInterval(() => {
-      autoSave();
-    }, 5000);
-    return () => {
-      if (autosaveRef.current) clearInterval(autosaveRef.current);
-    };
-  }, [wheat, flour, bread, money, cycleMs, workers, morale, unlocked]);
-
-  // auto weather change
+  // weather auto change
   useEffect(() => {
     const id = setInterval(() => {
       const r = Math.random();
@@ -287,79 +337,78 @@ export default function Home() {
     return () => clearInterval(id);
   }, []);
 
+  // autsave
+  useEffect(() => {
+    const id = setInterval(()=>{ saveGame(); }, 6000);
+    return ()=> clearInterval(id);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [wheat, flour, bread, money, workers, unlocked]);
+
   function pushHist(msg) {
-    const label = `${new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} — ${msg}`;
+    const label = `${new Date().toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'})} — ${msg}`;
     setNotif(msg);
-    setHistory(h => [label, ...h].slice(0, 80));
+    setHistory(h => [label, ...h].slice(0,80));
   }
 
-  function autoSave() {
-    try {
-      const state = { wheat, flour, bread, money, cycleMs, workers, morale, timestamp: Date.now() };
-      localStorage.setItem(SAVE_KEY, JSON.stringify(state));
-      pushHist("Autosave effectuée.");
-    } catch (e) {
-      console.error("Autosave failed", e);
-      pushHist("Erreur d'autosave.");
-    }
+  function computeMultipliers(u) {
+    let yieldMult = 1;
+    if (u["hand_tools"]) yieldMult *= 1.08;
+    if (u["wheel_stone"]) yieldMult *= 1.05;
+    if (u["water_mill"]) yieldMult *= 1.15;
+    if (u["wind_mill"]) yieldMult *= 1.25;
+    if (u["steam_engine"]) yieldMult *= 1.45;
+    if (u["electric_motors"]) yieldMult *= 1.6;
+    if (u["ai_automation"]) yieldMult *= 2.0;
+    return { yieldMult };
   }
 
-  /* ---------- Gameplay Actions ---------- */
-  function produceCycle() {
-    // workers determine consumption and production rate
-    const baseConsume = Math.max(1, workers);
-    if (wheat <= 0) {
-      pushHist("Plus de blé — acheter du blé !");
-      return;
-    }
-    const consume = Math.min(wheat, baseConsume);
-    setWheat(w => Math.max(0, w - consume));
-
-    const techYield = computeMultipliers(unlocked).yieldMult;
-    // workers give additive bonus: more workers -> allow parallel production: base * (1 + workers*0.12)
+  function productionCycle() {
+    const consume = Math.max(1, workers);
+    if (wheat <= 0) { pushHist("Plus de blé — achetez du blé !"); return; }
+    const actually = Math.min(wheat, consume);
+    setWheat(w => Math.max(0, w - actually));
+    const ym = computeMultipliers(unlocked).yieldMult;
     const workerEffect = 1 + Math.min(5, workers * 0.12);
-    const produced = +(consume * techYield * workerEffect * (weather === "Soleil" ? 1 : weather === "Pluie" ? 0.85 : 0.5) * (1 + (morale/1000))).toFixed(2);
+    const produced = +(actually * ym * workerEffect * (weather === "Soleil" ? 1 : weather === "Pluie" ? 0.85 : 0.5) * (1 + (morale/1000))).toFixed(2);
     setFlour(f => +(f + produced).toFixed(2));
 
-    // convert flour -> bread & sell
+    // convert to bread & sell
     setFlour(f => {
       const total = +(f + produced).toFixed(2);
-      const possibleBread = Math.floor(total / 4);
-      if (possibleBread > 0) {
-        setBread(b => b + possibleBread);
-        const unitPrice = unlocked["market_network"] ? 12 : 10;
-        setMoney(m => m + possibleBread * unitPrice);
-        pushHist(`Cycle: ${produced} farine → ${possibleBread} pain vendus (+${possibleBread * unitPrice}🪙)`);
-        return +(total - possibleBread * 4).toFixed(2);
-      } else {
-        pushHist(`Cycle: ${produced} farine produite.`);
-        return total;
-      }
+      const breadPossible = Math.floor(total / 4);
+      if (breadPossible > 0) {
+        setBread(b => b + breadPossible);
+        const price = unlocked["market_network"] ? 12 : 10;
+        setMoney(m => m + breadPossible * price);
+        pushHist(`Cycle: ${produced} farine → ${breadPossible} pain vendus (+${breadPossible * price}🪙)`);
+        return +(total - breadPossible * 4).toFixed(2);
+      } else { pushHist(`Cycle: ${produced} farine produite.`); return total; }
     });
 
-    // pay wages
+    // wages & morale
     const wage = Math.max(0, Math.round(workers * (unlocked["guilds"] ? 0.8 : 1)));
     setMoney(m => Math.max(0, m - wage));
-    setMorale(m => Math.max(10, Math.min(100, m + (Math.random() > 0.88 ? -4 : Math.random() > 0.6 ? 1 : 0))));
+    setMorale(m => clamp(m + (Math.random() > 0.88 ? -3 : Math.random() > 0.6 ? 1 : 0), 10, 100));
   }
 
+  // actions
   function grindManual() {
-    if (wheat <= 0) { pushHist("Pas de blé à moudre."); return; }
+    if (wheat <= 0) { pushHist("Pas de blé."); return; }
     setWheat(w => w - 1);
     const produced = +(1 * computeMultipliers(unlocked).yieldMult * (weather === "Soleil" ? 1 : weather === "Pluie" ? 0.85 : 0.5)).toFixed(2);
     setFlour(f => +(f + produced).toFixed(2));
     pushHist(`Moulage manuel : +${produced} farine.`);
-    autoSave();
+    saveGame();
   }
 
-  function buyWheat(q = 20) {
-    const unit = unlocked["trade_routes"] ? 0.45 : 0.6;
-    const cost = Math.ceil(q * unit);
-    if (money < cost) { pushHist("Pas assez d'or."); return; }
-    setMoney(m => m - cost);
+  function buyWheat(q=20) {
+    const pricePer = unlocked["trade_routes"] ? 0.45 : 0.6;
+    const total = Math.ceil(q * pricePer);
+    if (money < total) { pushHist("Pas assez d'or."); return; }
+    setMoney(m => m - total);
     setWheat(w => w + q);
-    pushHist(`Acheté ${q} blé (-${cost}🪙).`);
-    autoSave();
+    pushHist(`Acheté ${q} blé (-${total}🪙).`);
+    saveGame();
   }
 
   function hireWorker() {
@@ -368,76 +417,113 @@ export default function Home() {
     setMoney(m => m - cost);
     setWorkers(w => w + 1);
     pushHist("Ouvrier embauché.");
-    autoSave();
+    saveGame();
   }
 
   function improveMill() {
     const cost = 160;
-    if (money < cost) { pushHist("Pas assez d'or pour améliorer."); return; }
+    if (money < cost) { pushHist("Pas assez d'or."); return; }
     setMoney(m => m - cost);
     setCycleMs(c => Math.max(600, Math.round(c * 0.78)));
-    pushHist("Moulin amélioré : cycles plus rapides.");
-    autoSave();
+    pushHist("Moulin amélioré.");
+    saveGame();
   }
 
-  /* ---------- UI helpers ---------- */
-  // compute positions for worker avatars (simple spread)
-  const workerPositions = Array.from({ length: workers }).map((_, i) => (i * 36) + 6);
+  function saveGame() {
+    try {
+      const state = { wheat, flour, bread, money, workers, morale, cycleMs, timestamp: Date.now() };
+      localStorage.setItem(SAVE_KEY, JSON.stringify(state));
+      pushHist("Sauvegarde effectuée.");
+    } catch (e) { pushHist("Erreur sauvegarde."); }
+  }
 
-  /* ---------- Render ---------- */
+  function resetGame() {
+    if (!confirm("Réinitialiser la partie ?")) return;
+    localStorage.removeItem(SAVE_KEY);
+    // do not clear tech; user may want tech to persist
+    setWheat(220); setFlour(0); setBread(0); setMoney(260); setWorkers(1); setMorale(92); setCycleMs(6000);
+    pushHist("Partie réinitialisée.");
+  }
+
+  // determine era for visuals: find highest unlocked epoch - simplified mapping:
+  function currentEra() {
+    const epochOrder = ["Préhistoire","Antiquité","Moyen Âge","Renaissance","Révolution","Moderne","Spatiale"];
+    const ids = Object.keys(unlocked);
+    const epochs = ids.map(id => { /* map id->epoch roughly */ 
+      if (!id) return null;
+      if (["hand_tools","fire"].includes(id)) return "Préhistoire";
+      if (["wheel_stone","water_mill"].includes(id)) return "Antiquité";
+      if (["wheel_iron","guilds"].includes(id)) return "Moyen Âge";
+      if (["wind_mill"].includes(id)) return "Renaissance";
+      if (["steam_engine","factory_lines"].includes(id)) return "Révolution";
+      if (["electric_motors","computing","ai_automation","market_network","trade_routes"].includes(id)) return "Moderne";
+      if (["space_mining","fusion_drive","colonies"].includes(id)) return "Spatiale";
+      return null;
+    }).filter(Boolean);
+    for (let i = epochOrder.length - 1; i >= 0; i--) {
+      if (epochs.includes(epochOrder[i])) return epochOrder[i];
+    }
+    return "Préhistoire";
+  }
+
+  const era = currentEra();
+
+  // compute worker avatar positions for display
+  const workerPositions = Array.from({ length: workers }).map((_, i) => 8 + i * 44);
+
+  /* ----------------------
+    RENDER
+  -----------------------*/
   return (
-    <div className={`page root-era-${currentEra.toLowerCase().replace(/\s/g,'-')}`}>
-      <WeatherVisual weather={weather} era={currentEra} />
+    <div className={`page era-${era.toLowerCase().replace(/\s/g,'-')}`}>
+      {/* Ambient decorative layers */}
+      <div className="ambient">
+        {/* subtle particle + vignette */}
+        <div className="particles" />
+      </div>
 
-      <header className="top">
-        <div className="brand">
+      <header className="header">
+        <div className="left-brand">
           <div className="logo">🏰</div>
           <div>
             <div className="title">Medieval Mill Master</div>
-            <div className="tagline">{currentEra} — Gestion & progression temporelle</div>
+            <div className="subtitle">{era} — Ambiance renforcée</div>
           </div>
         </div>
-
-        <nav className="top-actions">
-          <Link href="/technologie"><a className="btn ghost">Arbre Technologie</a></Link>
-          <button className="btn" onClick={() => { pushHist("Sauvegarde manuelle..."); autoSave(); }}>Sauvegarder</button>
-        </nav>
+        <div className="top-actions">
+          <Link href="/technologie"><a className="link-btn">Arbre Technologie</a></Link>
+          <button className="btn ghost" onClick={() => { saveGame(); }}>Sauvegarder</button>
+          <button className="btn" onClick={() => { pushHist("Aide: ouvriers améliorent la productivité."); }}>?</button>
+        </div>
       </header>
 
       <main className="main">
         <section className="left">
-          <div className="card mill">
-            <div className="mill-visual">
-              {/* SVG moulin stylisé */}
-              <svg viewBox="0 0 360 220" className="mill-svg" preserveAspectRatio="xMidYMid meet" aria-hidden>
-                <g transform="translate(60,20)">
-                  <rect x="70" y="40" width="98" height="66" rx="8" fill="#335ef0" opacity="0.95" />
-                  <g transform="translate(30,80)" className="wheel-group">
-                    <circle cx="0" cy="0" r="44" stroke="#dbeeff" strokeWidth="6" fill="rgba(0,0,0,0.06)"/>
-                    <g className="spokes">
-                      {Array.from({ length: 8 }).map((_, i) => {
-                        const rot = i * 45;
-                        return <line key={i} x1="0" y1="0" x2="0" y2="-38" stroke="#e6f2ff" strokeWidth="4" transform={`rotate(${rot})`} strokeLinecap="round" />;
-                      })}
-                    </g>
-                  </g>
-                </g>
-              </svg>
-
-              {/* worker avatars overlay */}
+          <div className="card visual-card">
+            {/* detailed mill */}
+            <div className="mill-area">
+              <DetailedMill spinDuration={Math.max(900, cycleMs)} era={era} />
+              {/* worker avatars overlaid */}
               <div className="workers">
-                {workerPositions.map((pos, i) => (
-                  <Worker key={i} index={i} active={true} offsetX={pos} />
-                ))}
+                {workerPositions.map((x, i) => {
+                  const variant = i % 3;
+                  return (
+                    <div className="worker-wrap" key={i} style={{ left: `${x}px` }}>
+                      {variant === 0 && <WorkerSpriteA />}
+                      {variant === 1 && <WorkerSpriteB />}
+                      {variant === 2 && <WorkerSpriteC />}
+                    </div>
+                  );
+                })}
               </div>
             </div>
 
-            <div className="mill-info">
-              <div className="stat-row"><span>🪙 Argent</span><strong>{fmt(money)}</strong></div>
-              <div className="stat-row"><span>🌾 Blé</span><strong>{fmt(wheat)}</strong></div>
-              <div className="stat-row"><span>🥖 Pain</span><strong>{fmt(bread)}</strong></div>
-              <div className="stat-row"><span>👷 Ouvriers</span><strong>{workers}</strong></div>
-              <div className="stat-row"><span>⏱ Cycle</span><strong>{(cycleMs/1000).toFixed(1)}s</strong></div>
+            <div className="info-row">
+              <div className="stat">🪙 <strong>{fmt(money)}</strong></div>
+              <div className="stat">🌾 <strong>{fmt(wheat)}</strong></div>
+              <div className="stat">🥖 <strong>{fmt(bread)}</strong></div>
+              <div className="stat">👷 <strong>{workers}</strong></div>
+              <div className="stat">⏱ <strong>{(cycleMs/1000).toFixed(1)}s</strong></div>
             </div>
 
             <div className="controls">
@@ -450,106 +536,95 @@ export default function Home() {
 
           <div className="card market">
             <h3>Atelier & marché</h3>
-            <p>Farine → pain (4 farine = 1 pain). Le pain est vendu automatiquement.</p>
-            <div className="small-controls">
-              <button onClick={() => { if (flour >= 1) { setFlour(f => +(f - 1).toFixed(2)); setMoney(m => m + 2); pushHist("Vendu 1 farine (+2🪙)"); autoSave(); } else pushHist("Pas assez de farine."); }}>Vendre 1 farine</button>
-              <button onClick={() => { setBread(0); pushHist("Vider stock pain (debug)"); autoSave(); }} className="ghost">Vider pain</button>
+            <p>La farine est transformée automatiquement en pain (4 farine → 1 pain). Le pain est vendu automatiquement.</p>
+            <div className="market-controls">
+              <button onClick={() => { if (flour >= 1) { setFlour(f => +(f - 1).toFixed(2)); setMoney(m => m + 2); pushHist("Vente manuelle: +2🪙"); saveGame(); } else pushHist("Pas assez de farine."); }}>Vendre 1 farine</button>
+              <button className="ghost" onClick={() => { setBread(0); pushHist("Stock pain vidé (debug)"); saveGame(); }}>Vider pain (debug)</button>
             </div>
           </div>
         </section>
 
         <aside className="right">
-          <div className="card tech-quick">
-            <h4>Tech rapide</h4>
-            <div className="tech-badges">
-              <div className={`badge ${unlocked["hand_tools"] ? "on" : ""}`}>🪨</div>
-              <div className={`badge ${unlocked["water_mill"] ? "on" : ""}`}>💧</div>
-              <div className={`badge ${unlocked["wind_mill"] ? "on" : ""}`}>💨</div>
-              <div className={`badge ${unlocked["ai_automation"] ? "on" : ""}`}>🤖</div>
+          <div className="card mini-tech">
+            <h4>Technologies actives</h4>
+            <div className="badges">
+              <div className={`badge ${unlocked["hand_tools"] ? "on":""}`}>🪨</div>
+              <div className={`badge ${unlocked["water_mill"] ? "on":""}`}>💧</div>
+              <div className={`badge ${unlocked["wind_mill"] ? "on":""}`}>💨</div>
+              <div className={`badge ${unlocked["ai_automation"] ? "on":""}`}>🤖</div>
             </div>
-            <div style={{ marginTop: 10 }}>
-              <Link href="/technologie"><a className="link">Ouvrir l'arbre techno →</a></Link>
+            <div style={{ marginTop: 12 }}>
+              <Link href="/technologie"><a className="link">Gérer technologies →</a></Link>
             </div>
           </div>
 
           <div className="card events">
-            <h4>Évènements & notifications</h4>
+            <h4>Évènements</h4>
             <div className="current">{notif}</div>
             <ul className="history">
-              {history.map((h, i) => <li key={i}>{h}</li>)}
+              {history.map((h, idx) => <li key={idx}>{h}</li>)}
             </ul>
-            <div className="controls small">
-              <label><input type="checkbox" checked readOnly /> Autosave (actif)</label>
-              <button onClick={() => { pushHist("Sauvegarde manuelle déclenchée"); autoSave(); }} className="ghost">Sauvegarder</button>
+            <div style={{ marginTop: 10 }}>
+              <label style={{display:'flex', alignItems:'center', gap:8}}><input type="checkbox" readOnly checked /> Autosave</label>
+              <div style={{ marginTop:8 }}>
+                <button className="ghost" onClick={() => saveGame()}>Sauvegarder</button>
+                <button className="ghost" onClick={() => resetGame()}>Réinitialiser</button>
+              </div>
             </div>
           </div>
         </aside>
       </main>
 
-      <footer className="footer">Prototype — progression visible par époque • Sauvegarde automatique et sync techno</footer>
+      <footer className="footer">Ambiance renforcée — ouvriers visibles & moulin animé. Pour plus d'assets visuels dis-moi lesquels tu veux (sprites, textures, bruitages).</footer>
 
       <style jsx>{`
-        :root{ --accent:#3367d6; --accent2:#4285f4; --muted:#cfe3ff; }
-        .page { min-height:100vh; position:relative; color:#ecf4ff; background: linear-gradient(180deg,#07102a 0%, #071827 60%); overflow:hidden; }
-        /* Era backgrounds */
-        .root-era-préhistoire { background-image: radial-gradient(circle at 20% 20%, rgba(80,40,0,0.08), transparent), linear-gradient(180deg,#081018,#071226); }
-        .root-era-antiquité { background-image: linear-gradient(180deg,#071227,#082035); }
-        .root-era-moyen-âge { background-image: linear-gradient(180deg,#061426,#07182a); }
-        .root-era-révolution { background-image: linear-gradient(180deg,#051428,#071c36); }
-        .root-era-moderne { background-image: linear-gradient(180deg,#071431,#07183a); }
-        .root-era-spatiale { background-image: linear-gradient(180deg,#01031a,#04102a); }
+        :root{ --accent:#3367d6; --accent2:#4285f4; --bg1:#07102a; --muted:#cfe3ff; }
+        .page { min-height:100vh; background: linear-gradient(180deg,#041226 0%, #071427 60%); color:#eaf6ff; position:relative; overflow:hidden; }
+        .ambient .particles { position:absolute; inset:0; background-image: radial-gradient(rgba(255,255,255,0.02) 1px, transparent 1px); background-size: 40px 40px; opacity:0.05; pointer-events:none; }
 
-        .top { display:flex; justify-content:space-between; align-items:center; padding:16px 28px; position:relative; z-index:6; }
-        .brand { display:flex; gap:12px; align-items:center; }
-        .logo { width:46px; height:46px; background: linear-gradient(90deg,var(--accent),var(--accent2)); border-radius:8px; display:flex; align-items:center; justify-content:center; font-size:20px; box-shadow:0 10px 30px rgba(51,103,214,0.12); }
-        .title { font-weight:900; font-size:1.1rem; }
-        .tagline { color: rgba(255,255,255,0.7); font-size:0.9rem; margin-top:4px; }
+        .header { display:flex; justify-content:space-between; align-items:center; padding:14px 22px; max-width:1200px; margin:0 auto; z-index:6; }
+        .left-brand { display:flex; gap:12px; align-items:center; }
+        .logo { width:46px; height:46px; border-radius:10px; background: linear-gradient(90deg,var(--accent),var(--accent2)); display:flex; align-items:center; justify-content:center; color:white; font-weight:900; box-shadow:0 12px 36px rgba(51,103,214,0.12); }
+        .title { font-weight:900; font-size:1.05rem; }
+        .subtitle { color:rgba(255,255,255,0.7); margin-top:3px; font-size:0.9rem; }
 
         .top-actions { display:flex; gap:10px; align-items:center; }
-        .btn { background: linear-gradient(90deg,var(--accent),var(--accent2)); padding:8px 12px; border-radius:8px; border:none; color:white; font-weight:800; cursor:pointer; }
+        .link-btn { padding:8px 10px; border-radius:8px; background: linear-gradient(90deg,var(--accent),var(--accent2)); color:white; text-decoration:none; font-weight:800; }
+        .btn { padding:8px 10px; border-radius:8px; background:linear-gradient(90deg,var(--accent),var(--accent2)); border:none; color:white; font-weight:800; cursor:pointer; }
         .btn.ghost { background:transparent; border:1px solid rgba(255,255,255,0.04); color:var(--muted); }
 
-        .main { display:flex; gap:18px; padding:18px 28px; max-width:1200px; margin:0 auto; z-index:6; }
-        .left { flex:2; display:flex; flex-direction:column; gap:14px; }
+        .main { max-width:1200px; margin:20px auto; display:flex; gap:18px; padding:12px 16px; z-index:6; }
+        .left { flex:2; display:flex; flex-direction:column; gap:12px; }
         .right { flex:1; display:flex; flex-direction:column; gap:12px; }
 
-        .card { background: linear-gradient(180deg, rgba(255,255,255,0.02), rgba(255,255,255,0.01)); border-radius:12px; padding:14px; border:1px solid rgba(255,255,255,0.03); box-shadow: 0 10px 30px rgba(0,0,0,0.6); }
+        .card { background: linear-gradient(180deg, rgba(255,255,255,0.02), rgba(255,255,255,0.01)); border-radius:12px; padding:12px; border:1px solid rgba(255,255,255,0.03); box-shadow: 0 12px 40px rgba(0,0,0,0.5); }
 
-        /* mill */
-        .mill { display:flex; flex-direction:column; gap:8px; }
-        .mill-visual { position:relative; display:flex; gap:12px; align-items:center; padding:8px; min-height:180px; }
-        .mill-svg { width:360px; height:220px; background: linear-gradient(180deg, rgba(255,255,255,0.01), rgba(255,255,255,0.00)); border-radius:10px; display:flex; align-items:center; justify-content:center; position:relative; z-index:2; }
-        .workers { position:absolute; bottom:20px; left:40px; right:40px; pointer-events:none; height:72px; }
+        .visual-card .mill-area { position:relative; height:340px; overflow:visible; background: linear-gradient(180deg, rgba(255,255,255,0.005), rgba(255,255,255,0.01)); border-radius:8px; padding:10px; }
+        .workers { position:absolute; left:28px; right:28px; bottom:12px; height:88px; pointer-events:none; }
+        .worker-wrap { position:absolute; bottom:8px; width:48px; height:64px; transform-origin: center bottom; transition:left 700ms linear; }
 
-        .mill-info { display:flex; flex-direction:column; gap:6px; color:var(--muted); font-weight:700; }
-        .stat-row { display:flex; justify-content:space-between; align-items:center; padding:6px 0; }
+        .info-row { display:flex; gap:10px; margin-top:8px; flex-wrap:wrap; color:var(--muted); font-weight:800; }
+        .stat { background: rgba(255,255,255,0.02); padding:6px 10px; border-radius:8px; min-width:96px; text-align:center; }
 
-        .controls { display:flex; gap:10px; flex-wrap:wrap; margin-top:8px; }
-        button { background: linear-gradient(90deg,var(--accent),var(--accent2)); border:none; color:white; padding:9px 12px; border-radius:10px; font-weight:800; cursor:pointer; box-shadow:0 8px 28px rgba(51,103,214,0.12); }
-        button.ghost { background:transparent; border:1px solid rgba(255,255,255,0.04); color:var(--muted); }
+        .controls { display:flex; gap:10px; margin-top:8px; flex-wrap:wrap; }
+        .controls button { padding:10px 12px; border-radius:10px; border:none; background: linear-gradient(90deg,var(--accent),var(--accent2)); color:white; font-weight:900; }
 
-        .market { display:flex; flex-direction:column; gap:8px; }
-        .small-controls { display:flex; gap:8px; }
+        .market .market-controls { display:flex; gap:8px; }
 
-        .tech-quick .tech-badges { display:flex; gap:8px; margin-top:8px; }
-        .badge { background: rgba(255,255,255,0.02); padding:8px; border-radius:8px; font-weight:800; color:var(--muted); }
-        .badge.on { background: linear-gradient(90deg,var(--accent),var(--accent2)); color:white; box-shadow:0 8px 22px rgba(51,103,214,0.12); }
+        .mini-tech .badges { display:flex; gap:8px; }
+        .badge { background: rgba(255,255,255,0.02); padding:8px; border-radius:8px; font-weight:900; color:var(--muted); }
+        .badge.on { background: linear-gradient(90deg,var(--accent),var(--accent2)); color:white; box-shadow: 0 8px 22px rgba(51,103,214,0.12); }
 
-        .events .current { font-weight:800; color:#eaf5ff; margin-bottom:6px; }
-        .history { list-style:none; margin:0; padding:0; display:flex; flex-direction:column; gap:6px; color:var(--muted); max-height:240px; overflow:auto; }
+        .events .current { font-weight:900; color:#eaf6ff; margin-bottom:8px; }
+        .history { list-style:none; margin:0; padding:0; display:flex; flex-direction:column; gap:6px; max-height:240px; overflow:auto; color:var(--muted); }
 
-        .footer { margin-top:16px; text-align:center; color:rgba(255,255,255,0.6); padding:14px 0; }
+        .footer { text-align:center; padding:12px; color:rgba(255,255,255,0.6); margin-top:18px; }
 
-        /* responsive */
-        @media (max-width: 980px) {
-          .main { flex-direction:column; padding:12px; }
-          .mill-svg { width:100%; height:160px; }
+        @media (max-width:980px) {
+          .main { flex-direction:column; }
+          .workers { left:10px; right:10px; }
         }
       `}</style>
     </div>
   );
 }
-
-
-
-
