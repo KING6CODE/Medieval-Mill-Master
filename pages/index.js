@@ -1,9 +1,9 @@
 import React, { useState, useEffect } from "react";
 import Link from "next/link";
-import DetailedMill from "../components/DetailedMill";
-import WorkerSpriteA from "../components/WorkerSpriteA";
-import WorkerSpriteB from "../components/WorkerSpriteB";
-import WorkerSpriteC from "../components/WorkerSpriteC";
+//import DetailedMill from "../components/DetailedMill";
+//import WorkerSpriteA from "../components/WorkerSpriteA";
+//import WorkerSpriteB from "../components/WorkerSpriteB";
+//import WorkerSpriteC from "../components/WorkerSpriteC";
 
 export default function Home() {
   // Exemple d'états, adapte selon ton code réel
